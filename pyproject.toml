@@ -18,6 +18,9 @@ dependencies = [
 Homepage = "https://github.com/tradeinsight/trading-data-py"
 "Bug Tracker" = "https://github.com/tradeinsight/trading-data-py/issues"
 
+[project.optional-dependencies]
+test = ["pytest>=7", "pytest-cov", "responses>=0.23"]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["trading_data*"]
