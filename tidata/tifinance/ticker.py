@@ -64,6 +64,7 @@ class Ticker:
         start: str,
         end: str,
         auto_adjust: bool = True,
+        actions: bool = True,
     ) -> pd.DataFrame:
         """Fetch OHLCV history for this ticker.
 
@@ -75,6 +76,8 @@ class Ticker:
             End date ``YYYY-MM-DD`` (inclusive).
         auto_adjust:
             When ``True`` (default), return split/dividend-adjusted prices.
+        actions:
+            When ``True`` (default), include Dividends and Stock Splits columns.
         """
         params = {
             "ticker": self.symbol,
@@ -87,10 +90,10 @@ class Ticker:
             params=params,
             timeout=self.timeout,
         )
-        return self._parse_response(response, auto_adjust=auto_adjust)
+        return self._parse_response(response, auto_adjust=auto_adjust, actions=actions)
 
     def _parse_response(
-        self, response: requests.Response, auto_adjust: bool
+        self, response: requests.Response, auto_adjust: bool, actions: bool
     ) -> pd.DataFrame:
         if not response.ok:
             self._raise_for_error(response)
@@ -101,7 +104,7 @@ class Ticker:
             rows = data["data"]
         else:
             rows = [data] if data else []
-        return self._build_dataframe(rows, auto_adjust=auto_adjust, actions=True)
+        return self._build_dataframe(rows, auto_adjust=auto_adjust, actions=actions)
 
     def _build_dataframe(
         self, rows: list, auto_adjust: bool, actions: bool
@@ -111,8 +114,14 @@ class Ticker:
         df = pd.DataFrame(rows)
         col_map = _ADJ_COLUMN_MAP if auto_adjust else _RAW_COLUMN_MAP
         df = df.rename(columns=col_map)
-        df["Dividends"] = pd.to_numeric(df.get("dividend", 0), errors="coerce").fillna(0.0)
-        df["Stock Splits"] = pd.to_numeric(df.get("split_ratio", 0), errors="coerce").fillna(0.0)
+        df["Dividends"] = pd.to_numeric(
+            df["dividend"] if "dividend" in df.columns else pd.Series(0.0, index=df.index),
+            errors="coerce",
+        ).fillna(0.0)
+        df["Stock Splits"] = pd.to_numeric(
+            df["split_ratio"] if "split_ratio" in df.columns else pd.Series(0.0, index=df.index),
+            errors="coerce",
+        ).fillna(0.0)
         keep = ["date", "Open", "High", "Low", "Close", "Volume", "Dividends", "Stock Splits"]
         existing = [c for c in keep if c in df.columns]
         df = df[existing].copy()
