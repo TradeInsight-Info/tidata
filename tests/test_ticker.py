@@ -475,6 +475,9 @@ def test_pagination_concatenates_pages():
     df = _make_ticker().history(start="2020-01-01", end="2027-01-01")
     assert len(df) == 2500
     assert len(resp_lib.calls) == 3
+    assert "offset=0"    in resp_lib.calls[0].request.url
+    assert "offset=1000" in resp_lib.calls[1].request.url
+    assert "offset=2000" in resp_lib.calls[2].request.url
 
 
 @resp_lib.activate

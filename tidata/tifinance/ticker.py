@@ -45,6 +45,16 @@ _PERIOD_DELTAS: dict[str, timedelta] = {
 _VALID_PERIODS = frozenset(_PERIOD_DELTAS) | {"ytd"}
 
 
+def _parse_date(s: str, param_name: str) -> date:
+    try:
+        return date.fromisoformat(s)
+    except ValueError:
+        raise InvalidParameterError(
+            "INVALID_PARAMETER",
+            f"Invalid date for '{param_name}': {s!r}. Expected YYYY-MM-DD.",
+        )
+
+
 def _resolve_dates(
     period: str | None,
     start: str | None,
@@ -76,11 +86,16 @@ def _resolve_dates(
         delta = _PERIOD_DELTAS[p]
 
         if end is not None:
-            end_d = date.fromisoformat(end) - timedelta(days=1)  # exclusive -> inclusive
+            end_d = _parse_date(end, "end") - timedelta(days=1)  # exclusive -> inclusive
             return (end_d - delta + timedelta(days=1)).isoformat(), end_d.isoformat()
         elif start is not None:
-            start_d = date.fromisoformat(start)
+            start_d = _parse_date(start, "start")
             end_d = min(start_d + delta - timedelta(days=1), today)
+            if end_d < start_d:
+                raise InvalidParameterError(
+                    "INVALID_PARAMETER",
+                    f"'start' ({start}) is in the future; no data available.",
+                )
             return start_d.isoformat(), end_d.isoformat()
         else:
             return (today - delta).isoformat(), today.isoformat()
@@ -88,11 +103,11 @@ def _resolve_dates(
     if start is None:
         raise ValueError("Provide 'period' or 'start'.")
 
-    start_d = date.fromisoformat(start)
+    start_d = _parse_date(start, "start")
     if end is None:
         return start_d.isoformat(), today.isoformat()
     else:
-        end_d = date.fromisoformat(end) - timedelta(days=1)  # exclusive -> inclusive
+        end_d = _parse_date(end, "end") - timedelta(days=1)  # exclusive -> inclusive
         return start_d.isoformat(), end_d.isoformat()
 
 
