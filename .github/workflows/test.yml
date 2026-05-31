@@ -5,6 +5,7 @@ on:
   push:
     branches: ["**"]
     tags: ["v*"]
+  workflow_call:
 
 jobs:
   test:
@@ -20,4 +21,4 @@ jobs:
         run: pip install -e ".[test]"
 
       - name: Run pytest with coverage
-        run: pytest --cov=trading_data --cov-report=term-missing --cov-fail-under=80
+        run: pytest --cov=tidata --cov-report=term-missing --cov-fail-under=80
