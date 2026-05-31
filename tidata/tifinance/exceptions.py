@@ -1,8 +1,8 @@
-"""Typed exceptions for Trading Data Service API error codes."""
+"""Typed exceptions for the tidata API client."""
 
 
 class APIError(Exception):
-    """Base exception for all Trading Data Service API errors."""
+    """Base exception for all TradeInsight API errors."""
 
     def __init__(self, code: str, message: str) -> None:
         self.code = code
@@ -26,7 +26,6 @@ class InvalidParameterError(APIError):
     """Raised when a required or invalid parameter is supplied."""
 
 
-# Maps API error code prefixes/values to exception classes.
 _CODE_MAP: dict[str, type[APIError]] = {
     "TICKER_NOT_FOUND": TickerNotFoundError,
     "TICKER_REQUIRED": InvalidParameterError,

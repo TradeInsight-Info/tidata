@@ -1,6 +1,4 @@
-"""trading_data — Python client for the TradeInsight Trading Data Service API."""
-
-from .client import Ticker
+from .ticker import Ticker
 from .exceptions import (
     APIError,
     AuthenticationError,

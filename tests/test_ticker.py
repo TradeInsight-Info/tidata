@@ -1,4 +1,4 @@
-"""Pytest suite for trading_data.Ticker.history()."""
+"""Pytest suite for tidata.tifinance.Ticker.history()."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import pandas as pd
 import pytest
 import responses as resp_lib
 
-from trading_data.client import Ticker
-from trading_data.exceptions import (
+from tidata.tifinance import Ticker
+from tidata.tifinance.exceptions import (
     APIError,
     AuthenticationError,
     InvalidParameterError,
@@ -17,7 +17,7 @@ from trading_data.exceptions import (
     TickerNotFoundError,
 )
 
-BASE_URL = "https://api.tradeinsight.info"
+BASE_URL = "https://api.tradeinsight.info/trading-data/v1"
 OHLC_URL = f"{BASE_URL}/ohlc"
 
 # Dummy key used only in tests — never a real credential
@@ -77,7 +77,7 @@ _THREE_ROWS = [
 
 
 def _make_ticker(symbol: str = "AAPL") -> Ticker:
-    return Ticker(symbol, api_key=_TEST_API_KEY, base_url=BASE_URL)
+    return Ticker(symbol, api_key=_TEST_API_KEY)
 
 
 def _error_body(code: str, message: str = "error") -> str:
@@ -335,11 +335,11 @@ def test_non_json_error_response():
 
 @resp_lib.activate
 def test_api_key_sent_as_header():
-    """The X-Api-Key header is included in the request."""
+    """The Authorization: Bearer header is included in the request."""
     resp_lib.add(resp_lib.GET, OHLC_URL, json={"data": []}, status=200)
     _make_ticker().history("2024-01-02", "2024-01-04")
 
-    assert resp_lib.calls[0].request.headers.get("X-Api-Key") == _TEST_API_KEY
+    assert resp_lib.calls[0].request.headers.get("Authorization") == f"Bearer {_TEST_API_KEY}"
 
 
 def test_symbol_normalised_to_uppercase():
