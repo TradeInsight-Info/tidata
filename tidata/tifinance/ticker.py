@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import os
+from datetime import date, timedelta
 from typing import Optional
 
 import pandas as pd
 import requests
 
-from .exceptions import APIError, from_code
+from .exceptions import APIError, InvalidParameterError, from_code
 
 _DEFAULT_BASE_URL = "https://api.tradeinsight.info/trading-data/v1"
 
@@ -27,6 +28,72 @@ _RAW_COLUMN_MAP = {
     "close": "Close",
     "volume": "Volume",
 }
+
+_PERIOD_DELTAS: dict[str, timedelta] = {
+    "1d": timedelta(days=1),
+    "5d": timedelta(days=5),
+    "1mo": timedelta(days=30),
+    "3mo": timedelta(days=91),
+    "6mo": timedelta(days=182),
+    "1y": timedelta(days=365),
+    "2y": timedelta(days=730),
+    "5y": timedelta(days=1825),
+    "10y": timedelta(days=3650),
+    "max": timedelta(days=3650),  # treated as 10y
+}
+
+_VALID_PERIODS = frozenset(_PERIOD_DELTAS) | {"ytd"}
+
+
+def _resolve_dates(
+    period: str | None,
+    start: str | None,
+    end: str | None,
+) -> tuple[str, str]:
+    """Convert period/start/end to an inclusive (start, end) pair for the API.
+
+    yfinance callers pass end as exclusive when they supply it explicitly —
+    we subtract 1 day. Internally computed ends use today as-is (inclusive).
+    """
+    today = date.today()
+
+    if period is not None and start is not None and end is not None:
+        raise ValueError(
+            "Setting period, start and end is nonsense. Set maximum 2 of them."
+        )
+
+    if period is not None:
+        p = period.lower()
+        if p not in _VALID_PERIODS:
+            raise InvalidParameterError(
+                "INVALID_PARAMETER",
+                f"Invalid period '{period}'. Valid: {', '.join(sorted(_VALID_PERIODS))}",
+            )
+
+        if p == "ytd":
+            return date(today.year, 1, 1).isoformat(), today.isoformat()
+
+        delta = _PERIOD_DELTAS[p]
+
+        if end is not None:
+            end_d = date.fromisoformat(end) - timedelta(days=1)  # exclusive -> inclusive
+            return (end_d - delta + timedelta(days=1)).isoformat(), end_d.isoformat()
+        elif start is not None:
+            start_d = date.fromisoformat(start)
+            end_d = min(start_d + delta - timedelta(days=1), today)
+            return start_d.isoformat(), end_d.isoformat()
+        else:
+            return (today - delta).isoformat(), today.isoformat()
+
+    if start is None:
+        raise ValueError("Provide 'period' or 'start'.")
+
+    start_d = date.fromisoformat(start)
+    if end is None:
+        return start_d.isoformat(), today.isoformat()
+    else:
+        end_d = date.fromisoformat(end) - timedelta(days=1)  # exclusive -> inclusive
+        return start_d.isoformat(), end_d.isoformat()
 
 
 class Ticker:
@@ -61,50 +128,78 @@ class Ticker:
 
     def history(
         self,
-        start: str,
-        end: str,
+        period: str | None = None,
+        interval: str = "1d",
+        start: str | None = None,
+        end: str | None = None,
         auto_adjust: bool = True,
         actions: bool = True,
+        **kwargs,
     ) -> pd.DataFrame:
         """Fetch OHLCV history for this ticker.
 
         Parameters
         ----------
+        period:
+            Shorthand time period, e.g. ``"1y"``, ``"6mo"``, ``"ytd"``, ``"max"``.
+            Mutually exclusive with providing both ``start`` and ``end``.
+        interval:
+            Data interval. Only ``"1d"`` is currently supported.
         start:
             Start date ``YYYY-MM-DD`` (inclusive).
         end:
-            End date ``YYYY-MM-DD`` (inclusive).
+            End date ``YYYY-MM-DD`` (exclusive, yfinance convention).
         auto_adjust:
             When ``True`` (default), return split/dividend-adjusted prices.
         actions:
             When ``True`` (default), include Dividends and Stock Splits columns.
         """
+        if interval != "1d":
+            raise InvalidParameterError(
+                "INVALID_PARAMETER",
+                "only interval='1d' is supported",
+            )
+
+        effective_period = period
+        if effective_period is None and start is None:
+            effective_period = "1mo"
+
+        resolved_start, resolved_end = _resolve_dates(effective_period, start, end)
+
         params = {
             "ticker": self.symbol,
-            "start": start,
-            "end": end,
+            "start": resolved_start,
+            "end": resolved_end,
             "adjust_volume": "true" if auto_adjust else "false",
         }
-        response = self._session.get(
-            f"{self.base_url}/ohlc",
-            params=params,
-            timeout=self.timeout,
-        )
-        return self._parse_response(response, auto_adjust=auto_adjust, actions=actions)
-
-    def _parse_response(
-        self, response: requests.Response, auto_adjust: bool, actions: bool
-    ) -> pd.DataFrame:
-        if not response.ok:
-            self._raise_for_error(response)
-        data = response.json()
-        if isinstance(data, list):
-            rows = data
-        elif isinstance(data, dict) and "data" in data:
-            rows = data["data"]
-        else:
-            rows = [data] if data else []
+        rows = self._fetch_all(params)
         return self._build_dataframe(rows, auto_adjust=auto_adjust, actions=actions)
+
+    def _fetch_all(self, params: dict) -> list:
+        """Paginate through all result pages and return combined rows."""
+        rows: list = []
+        offset = 0
+        while True:
+            page_params = {**params, "limit": 1000, "offset": offset}
+            response = self._session.get(
+                f"{self.base_url}/ohlc",
+                params=page_params,
+                timeout=self.timeout,
+            )
+            if not response.ok:
+                self._raise_for_error(response)
+            data = response.json()
+            if isinstance(data, list):
+                page = data
+            elif isinstance(data, dict) and "data" in data:
+                page = data["data"]
+            else:
+                page = []
+            rows.extend(page)
+            if len(page) < 1000:
+                break
+            offset += 1000
+        return rows
 
     def _build_dataframe(
         self, rows: list, auto_adjust: bool, actions: bool
