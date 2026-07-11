@@ -23,15 +23,30 @@ _RAW_COLUMN_MAP = {
     "low": "Low",
     "close": "Close",
     "volume": "Volume",
+    "adj_close": "Adj Close",
 }
 
-_COLUMNS = ["Open", "High", "Low", "Close", "Volume", "Dividends", "Stock Splits"]
+_NUMERIC = ["Open", "High", "Low", "Close", "Adj Close", "Volume"]
 
 
-def empty_frame() -> pd.DataFrame:
+def _schema(auto_adjust: bool, actions: bool) -> list[str]:
+    """Column order yfinance produces for the given flags.
+
+    auto_adjust=False adds an ``Adj Close`` column, matching yfinance.
+    """
+    cols = ["Open", "High", "Low", "Close"]
+    if not auto_adjust:
+        cols.append("Adj Close")
+    cols.append("Volume")
+    if actions:
+        cols += ["Dividends", "Stock Splits"]
+    return cols
+
+
+def empty_frame(auto_adjust: bool = True, actions: bool = True) -> pd.DataFrame:
     """Canonical empty DataFrame with the yfinance column schema."""
     return pd.DataFrame(
-        columns=list(_COLUMNS),
+        columns=_schema(auto_adjust, actions),
         index=pd.DatetimeIndex([], name="Date"),
     )
 
@@ -49,12 +64,13 @@ def frame_from_rows(
     rows:
         Raw row dicts from the API.
     auto_adjust:
-        When ``True``, use ``adj_*`` fields; otherwise use raw fields.
+        When ``True``, use ``adj_*`` fields; otherwise use raw fields and
+        add an ``Adj Close`` column (yfinance behaviour).
     actions:
         When ``True``, keep the ``Dividends`` and ``Stock Splits`` columns.
     """
     if not rows:
-        return empty_frame()
+        return empty_frame(auto_adjust=auto_adjust, actions=actions)
     df = pd.DataFrame(rows)
     col_map = _ADJ_COLUMN_MAP if auto_adjust else _RAW_COLUMN_MAP
     df = df.rename(columns=col_map)
@@ -66,15 +82,13 @@ def frame_from_rows(
         df["split_ratio"] if "split_ratio" in df.columns else pd.Series(0.0, index=df.index),
         errors="coerce",
     ).fillna(0.0)
-    keep = ["date", *_COLUMNS]
+    keep = ["date", *_schema(auto_adjust, actions)]
     existing = [c for c in keep if c in df.columns]
     df = df[existing].copy()
     df["date"] = pd.to_datetime(df["date"])
     df = df.rename(columns={"date": "Date"}).set_index("Date")
     df = df.sort_index()
-    for col in ["Open", "High", "Low", "Close", "Volume"]:
+    for col in _NUMERIC:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
-    if not actions:
-        df = df.drop(columns=["Dividends", "Stock Splits"], errors="ignore")
     return df

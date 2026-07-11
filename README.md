@@ -23,15 +23,15 @@ pip install -e .
 Set your API key in the environment:
 
 ```bash
-export TRADING_DATA_API_KEY=your_key_here
+export TIDATA_API_KEY=your_key_here
 ```
 
 Then use the client:
 
 ```python
-from trading_data import Ticker
+from tidata.tifinance import Ticker
 
-# API key is read from TRADING_DATA_API_KEY env var automatically
+# API key is read from TIDATA_API_KEY env var automatically
 t = Ticker("AAPL")
 
 # Adjusted prices (yfinance-compatible)
@@ -41,17 +41,46 @@ print(df.head())
 # Date
 # 2024-01-02  184.210...  185.880...  183.430...  185.200...  79047200.0        0.0           0.0
 
-# Raw (unadjusted) prices
+# Raw (unadjusted) prices — adds an "Adj Close" column, like yfinance
 df_raw = t.history(start="2024-01-01", end="2024-12-31", auto_adjust=False)
 ```
+
+## yfinance drop-in
+
+`Ticker.history()` mirrors yfinance for the daily-OHLCV case:
+
+```python
+from tidata.tifinance import Ticker, download
+
+# period shorthands: 1d 5d 1mo 3mo 6mo 1y 2y 5y 10y ytd max
+df = Ticker("AAPL").history(period="1y")
+
+# non-zero dividends / splits over full available history (period="max")
+divs = Ticker("AAPL").dividends
+spl = Ticker("AAPL").splits
+
+# bulk download — flat frame for one ticker, column MultiIndex for many
+one = download("AAPL", period="6mo")
+many = download("AAPL MSFT", period="6mo")   # columns: (field, ticker)
+```
+
+**Behaviour notes**
+
+- On API errors, `history()` logs a warning and returns an empty DataFrame
+  (yfinance behaviour). Pass `raise_errors=True` to raise the typed exception
+  instead.
+- `period="max"` requests full available history (from a `1900-01-01` floor),
+  not a fixed window.
+- Only `interval="1d"` is currently supported.
+- The index is a tz-naive `DatetimeIndex` named `Date`.
 
 ## Configuration
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `symbol` | Ticker symbol (e.g. `"AAPL"`) | required |
-| `api_key` | API key — also reads `TRADING_DATA_API_KEY` env var | `None` |
-| `base_url` | API base URL | `https://api.tradeinsight.info` |
+| `api_key` | API key — also reads `TIDATA_API_KEY` env var | `None` |
+| `base_url` | API base URL | `https://api.tradeinsight.info/trading-data/v1` |
 | `timeout` | HTTP timeout in seconds | `30` |
 
 ## Exceptions

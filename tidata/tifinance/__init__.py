@@ -1,4 +1,5 @@
 from .ticker import Ticker
+from .multi import download
 from .exceptions import (
     APIError,
     AuthenticationError,
@@ -9,6 +10,7 @@ from .exceptions import (
 
 __all__ = [
     "Ticker",
+    "download",
     "APIError",
     "AuthenticationError",
     "InvalidParameterError",

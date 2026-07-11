@@ -21,10 +21,11 @@ _PERIOD_DELTAS: dict[str, timedelta] = {
     "2y": timedelta(days=730),
     "5y": timedelta(days=1825),
     "10y": timedelta(days=3650),
-    "max": timedelta(days=3650),  # treated as 10y
 }
 
-_VALID_PERIODS = frozenset(_PERIOD_DELTAS) | {"ytd"}
+# "max" and "ytd" resolve specially rather than via a fixed delta.
+_MAX_START = "1900-01-01"  # floor; the API returns whatever history it has
+_VALID_PERIODS = frozenset(_PERIOD_DELTAS) | {"ytd", "max"}
 
 
 class Window(NamedTuple):
@@ -70,6 +71,9 @@ def resolve_window(
 
         if p == "ytd":
             return Window(date(today.year, 1, 1).isoformat(), today.isoformat())
+
+        if p == "max":
+            return Window(_MAX_START, today.isoformat())
 
         delta = _PERIOD_DELTAS[p]
 

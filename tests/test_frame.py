@@ -50,6 +50,24 @@ def test_auto_adjust_false_uses_raw_values():
     assert df.loc[pd.Timestamp("2024-01-02"), "Close"] == pytest.approx(187.0)
 
 
+def test_auto_adjust_false_adds_adj_close():
+    """yfinance parity: raw mode keeps raw Close and adds Adj Close."""
+    df = frame_from_rows(_ROWS, auto_adjust=False, actions=True)
+    assert "Adj Close" in df.columns
+    assert df.loc[pd.Timestamp("2024-01-02"), "Close"] == pytest.approx(187.0)
+    assert df.loc[pd.Timestamp("2024-01-02"), "Adj Close"] == pytest.approx(186.5)
+
+
+def test_auto_adjust_true_has_no_adj_close():
+    df = frame_from_rows(_ROWS, auto_adjust=True, actions=True)
+    assert "Adj Close" not in df.columns
+
+
+def test_empty_frame_raw_mode_includes_adj_close():
+    df = frame_from_rows([], auto_adjust=False, actions=True)
+    assert "Adj Close" in df.columns
+
+
 def test_index_sorted_ascending():
     df = frame_from_rows(_ROWS, auto_adjust=True, actions=True)
     assert list(df.index) == sorted(df.index)

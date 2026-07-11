@@ -169,7 +169,7 @@ def test_auto_adjust_false_columns():
     resp_lib.add(resp_lib.GET, OHLC_URL, json={"data": _THREE_ROWS}, status=200)
     df = _make_ticker().history(start="2024-01-02", end="2024-01-05", auto_adjust=False)
 
-    assert set(df.columns) == {"Open", "High", "Low", "Close", "Volume", "Dividends", "Stock Splits"}
+    assert set(df.columns) == {"Open", "High", "Low", "Close", "Adj Close", "Volume", "Dividends", "Stock Splits"}
 
 
 @resp_lib.activate
@@ -241,7 +241,7 @@ def test_ticker_not_found_error():
         content_type="application/json",
     )
     with pytest.raises(TickerNotFoundError) as exc_info:
-        _make_ticker("ZZZZ").history(start="2024-01-02", end="2024-01-05")
+        _make_ticker("ZZZZ").history(start="2024-01-02", end="2024-01-05", raise_errors=True)
 
     assert exc_info.value.code == "TICKER_NOT_FOUND"
 
@@ -257,7 +257,7 @@ def test_unauthorized_error():
         content_type="application/json",
     )
     with pytest.raises(AuthenticationError) as exc_info:
-        _make_ticker().history(start="2024-01-02", end="2024-01-05")
+        _make_ticker().history(start="2024-01-02", end="2024-01-05", raise_errors=True)
 
     assert exc_info.value.code == "UNAUTHORIZED"
 
@@ -273,7 +273,7 @@ def test_rate_limit_exceeded_error():
         content_type="application/json",
     )
     with pytest.raises(RateLimitError) as exc_info:
-        _make_ticker().history(start="2024-01-02", end="2024-01-05")
+        _make_ticker().history(start="2024-01-02", end="2024-01-05", raise_errors=True)
 
     assert exc_info.value.code == "RATE_LIMIT_EXCEEDED"
 
@@ -289,7 +289,7 @@ def test_ticker_required_error():
         content_type="application/json",
     )
     with pytest.raises(InvalidParameterError) as exc_info:
-        _make_ticker().history(start="2024-01-02", end="2024-01-05")
+        _make_ticker().history(start="2024-01-02", end="2024-01-05", raise_errors=True)
 
     assert exc_info.value.code == "TICKER_REQUIRED"
 
@@ -305,7 +305,7 @@ def test_unknown_error_code_raises_api_error():
         content_type="application/json",
     )
     with pytest.raises(APIError) as exc_info:
-        _make_ticker().history(start="2024-01-02", end="2024-01-05")
+        _make_ticker().history(start="2024-01-02", end="2024-01-05", raise_errors=True)
 
     # Must be base APIError, not a subclass
     assert type(exc_info.value) is APIError
@@ -323,7 +323,7 @@ def test_non_json_error_response():
         content_type="text/plain",
     )
     with pytest.raises(APIError) as exc_info:
-        _make_ticker().history(start="2024-01-02", end="2024-01-05")
+        _make_ticker().history(start="2024-01-02", end="2024-01-05", raise_errors=True)
 
     assert exc_info.value.code.startswith("HTTP_")
 
@@ -412,20 +412,13 @@ def test_period_ytd_start_is_jan_1():
 
 
 @resp_lib.activate
-def test_period_max_same_as_10y():
-    import urllib.parse
+def test_period_max_starts_at_floor():
+    """period='max' requests from the 1900 floor, not a 10y cap."""
     resp_lib.add(resp_lib.GET, OHLC_URL, json={"data": [], "total": 0, "limit": 1000, "offset": 0}, status=200)
     _make_ticker().history(period="max")
-    qs_max = resp_lib.calls[0].request.url
-
-    resp_lib.add(resp_lib.GET, OHLC_URL, json={"data": [], "total": 0, "limit": 1000, "offset": 0}, status=200)
-    _make_ticker().history(period="10y")
-    qs_10y = resp_lib.calls[1].request.url
-
-    p_max = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(qs_max).query))
-    p_10y = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(qs_10y).query))
-    assert p_max["start"] == p_10y["start"]
-    assert p_max["end"] == p_10y["end"]
+    qs = resp_lib.calls[0].request.url
+    assert "start=1900-01-01" in qs
+    assert f"end={date.today().isoformat()}" in qs
 
 
 # ---------------------------------------------------------------------------

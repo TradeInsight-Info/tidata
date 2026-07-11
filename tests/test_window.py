@@ -34,8 +34,8 @@ def test_period_with_start_clamps_end_to_today():
     assert w == Window("2024-01-01", "2024-06-15")  # clamped: start+1y would exceed today
 
 
-def test_max_equals_10y():
-    assert resolve_window("max", None, None, _TODAY) == resolve_window("10y", None, None, _TODAY)
+def test_max_starts_at_floor():
+    assert resolve_window("max", None, None, _TODAY) == Window("1900-01-01", "2024-06-15")
 
 
 def test_start_only_ends_today():
