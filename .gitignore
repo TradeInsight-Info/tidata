@@ -72,3 +72,7 @@ dmypy.json
 # Secrets
 .env.local
 api_key.txt
+
+# Claude Code (personal / transient — keep local)
+.claude/settings.local.json
+.claude/state/
