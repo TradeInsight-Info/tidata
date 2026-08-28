@@ -4,17 +4,27 @@ from __future__ import annotations
 
 import logging
 import os
+import warnings
 from datetime import date
 from typing import Optional
 
 import pandas as pd
 
-from .exceptions import APIError, InvalidParameterError
+from .exceptions import APIClosedError, APIError, InvalidParameterError
 from .frame import empty_frame, frame_from_rows
 from .transport import HttpTransport, Transport
 from .window import resolve_window
 
 _DEFAULT_BASE_URL = "https://api.tradeinsight.info/trading-data/v1"
+
+# The beta data API this package is built on closed on 2 September 2026. Said at
+# construction rather than only on the first request, so someone who installs
+# this today learns why before they start debugging a failed call.
+_SHUTDOWN_NOTICE = (
+    "tidata is deprecated: the TradeInsight beta data API it calls closed on "
+    "2 September 2026 and now answers 410 Gone. No API key will work again. "
+    "The data moved to TradeInsight Desk — https://tradeinsight.info"
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +56,10 @@ class Ticker:
         *,
         transport: Optional[Transport] = None,
     ) -> None:
+        # Not warned when a transport is injected: that is the test seam and a
+        # caller pointing at their own server, neither of which is affected.
+        if transport is None:
+            warnings.warn(_SHUTDOWN_NOTICE, DeprecationWarning, stacklevel=2)
         self.symbol = symbol.upper().strip()
         self._transport: Transport = transport or HttpTransport(
             base_url, api_key or os.environ.get("TIDATA_API_KEY"), timeout
@@ -83,6 +97,8 @@ class Ticker:
         raise_errors:
             When ``False`` (default, yfinance behaviour), API errors are logged
             and an empty DataFrame is returned. When ``True``, they raise.
+            :class:`APIClosedError` always raises regardless — the API is gone,
+            and an empty frame would hide that behind "no data".
         """
         if interval != "1d":
             raise InvalidParameterError(
@@ -104,6 +120,13 @@ class Ticker:
         }
         try:
             rows = self._transport.fetch("/ohlc", params)
+        except APIClosedError:
+            # Never swallowed, even with raise_errors=False. That default exists
+            # to match yfinance for a transient failure, where an empty frame is
+            # a reasonable answer. A closed API is not transient: returning an
+            # empty DataFrame would read as "no data for this ticker" and hide
+            # the one fact the caller needs.
+            raise
         except APIError:
             if raise_errors:
                 raise

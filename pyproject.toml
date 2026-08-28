@@ -4,10 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tidata"
-version = "0.2.0"
-description = "Python client for the TradeInsight API — yfinance-compatible Ticker.history()"
+version = "0.3.0"
+description = "DEPRECATED — the TradeInsight beta data API this client calls closed on 2 September 2026"
 readme = "README.md"
 license = { text = "MIT" }
+classifiers = [
+    "Development Status :: 7 - Inactive",
+]
 requires-python = ">=3.9"
 dependencies = [
     "requests>=2.28",
