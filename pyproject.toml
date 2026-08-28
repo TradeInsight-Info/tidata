@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tidata"
 version = "0.3.0"
-description = "DEPRECATED — the TradeInsight beta data API this client calls closed on 2 September 2026"
+description = "DEPRECATED — the TradeInsight beta data API this client calls closes 2 September 2026"
 readme = "README.md"
 license = { text = "MIT" }
 classifiers = [
