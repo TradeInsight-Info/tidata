@@ -26,6 +26,14 @@ class InvalidParameterError(APIError):
     """Raised when a required or invalid parameter is supplied."""
 
 
+class APIClosedError(APIError):
+    """Raised when the backing API has been retired and answers 410 Gone.
+
+    Terminal, unlike AuthenticationError: no key will work again, so a caller
+    catching this should stop rather than prompt for another credential.
+    """
+
+
 _CODE_MAP: dict[str, type[APIError]] = {
     "TICKER_NOT_FOUND": TickerNotFoundError,
     "TICKER_REQUIRED": InvalidParameterError,
@@ -39,6 +47,11 @@ _CODE_MAP: dict[str, type[APIError]] = {
     "INVALID_DATE": InvalidParameterError,
     "INVALID_PARAMETER": InvalidParameterError,
     "DATE_REQUIRED": InvalidParameterError,
+    # The beta data API closed at 23:59 UTC on 2 September 2026. The server
+    # sends this code
+    # with a 410 so an install from before the shutdown says why, instead of
+    # failing as an auth problem the user cannot fix.
+    "API_CLOSED": APIClosedError,
 }
 
 
