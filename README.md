@@ -2,14 +2,13 @@
 
 > ## ⚠️ Deprecated — the API behind this package is closed
 >
-> The TradeInsight **beta data API** that `tidata` calls stops answering at
-> **23:59 UTC on 2 September 2026**. From then on every request returns
-> `410 Gone`, and no key will work again — the beta credential pool is being
+> The TradeInsight **beta data API** that `tidata` calls stopped answering at
+> **23:59 UTC on 2 September 2026**. Every request now returns
+> `410 Gone`, and no key will work again — the beta credential pool is
 > switched off, and beta signup is closed, so a new key cannot be issued either.
 >
-> Key holders were emailed on 26 August 2026. If you are reading this before the
-> cutoff, the API still answers; there is nothing to migrate to that keeps this
-> package working.
+> Key holders were emailed on 26 August 2026. There is nothing to migrate to
+> that keeps this package working.
 >
 > **Nothing in this package can be made to work.** It has no unauthenticated
 > mode: without a key it never sent an `Authorization` header, and the server

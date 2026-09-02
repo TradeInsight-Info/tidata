@@ -47,7 +47,7 @@ _CODE_MAP: dict[str, type[APIError]] = {
     "INVALID_DATE": InvalidParameterError,
     "INVALID_PARAMETER": InvalidParameterError,
     "DATE_REQUIRED": InvalidParameterError,
-    # The beta data API closes at 23:59 UTC on 2 September 2026. The server
+    # The beta data API closed at 23:59 UTC on 2 September 2026. The server
     # sends this code
     # with a 410 so an install from before the shutdown says why, instead of
     # failing as an auth problem the user cannot fix.

@@ -17,13 +17,13 @@ from .window import resolve_window
 
 _DEFAULT_BASE_URL = "https://api.tradeinsight.info/trading-data/v1"
 
-# The beta data API this package is built on stops answering at 23:59 UTC on
+# The beta data API this package is built on stopped answering at 23:59 UTC on
 # 2 September 2026. Said at
 # construction rather than only on the first request, so someone who installs
 # this today learns why before they start debugging a failed call.
 _SHUTDOWN_NOTICE = (
-    "tidata is deprecated: the TradeInsight beta data API it calls stops "
-    "answering at 23:59 UTC on 2 September 2026, after which every request "
+    "tidata is deprecated: the TradeInsight beta data API it calls stopped "
+    "answering at 23:59 UTC on 2 September 2026; every request now "
     "returns 410 Gone and no API key will work again. "
     "The data moved to TradeInsight Desk — https://tradeinsight.info"
 )
